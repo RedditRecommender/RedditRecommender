@@ -1,23 +1,30 @@
 #! /usr/local/bin/python3.5
 import praw
-import random
+from credentials import reddit
 
-reddit = praw.Reddit(client_id = 'rPCwo0Eool5JHw', 
-                     client_secret = 'm8fD_XxXnUJYnyscLahHjGPMVPU',
-                     username = 'RNGesusBOT',
-                     password = 'phonebottlebattery',
-                     user_agent = 'RedditScraper')
+userList = []
+for subreddit in range(3):
+    sub = (reddit.subreddit('random'))
+    for comments in sub.comments(limit = 1):
+        userList.append(comments.author)
 
-subreddit = reddit.subreddit('dankmemes');
+userSubsDict = {}
+for user in userList:
+    redditor = str(user)
+    subList = {}
+    for comment in reddit.redditor(redditor).comments.new(limit=5):
+        subRedditName = str(comment.subreddit.display_name)
+        if(subRedditName in subList):
+            pass
+        else:
+            subList[subRedditName] = 0
+    userSubsDict[user] = subList
 
-hot_posts = subreddit.hot(limit=15)
-post_number = random.randint(0, 14)
 
-for i, submission in enumerate(hot_posts):
-   print(submission.title, i)
-#   if i == post_number:
-#      print(submission.url)
+# redditor = reddit.redditor('TrustMeIKnowThisOne')
 
-#for submission in hot_python:
-#   if not submission.stickied:
-#      print(submission.title)
+# print(dir(redditor))
+
+# for upvoted in reddit.redditor('TrustMeIKnowThisOne').upvoted():
+#   print(upvoted)
+
