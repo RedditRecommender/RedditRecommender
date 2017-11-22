@@ -11,8 +11,6 @@ for submission in hot_posts:
    if not submission.stickied:
       print(submission.title)
 '''
-
-
 # Waddup nerds here's how to grab some user info
 username = 'spez' # set whatever username you want here
 
