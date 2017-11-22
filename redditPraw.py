@@ -9,7 +9,8 @@ hot_posts = subreddit.hot(limit=15)
 post_number = random.randint(0, 14)
 
 for i, submission in enumerate(hot_posts):
-   print(submission.title, i)
+	#stuff
+   print(submission.title, i) #test
 #   if i == post_number:
 #      print(submission.url)
 
@@ -18,4 +19,4 @@ for i, submission in enumerate(hot_posts):
 #      print(submission.title)
 
 
-#sas
+#sast
