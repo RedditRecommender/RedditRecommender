@@ -1,12 +1,10 @@
 #!/usr/bin/python3
 import praw
-import random
 from credentials import reddit
 
 subreddit = reddit.subreddit('ShowerThoughts');
 
 hot_posts = subreddit.hot(limit=15)
-post_number = random.randint(0, 14)
 
 for i, submission in enumerate(hot_posts):
 	#stuff
@@ -19,4 +17,6 @@ for i, submission in enumerate(hot_posts):
 #      print(submission.title)
 
 
-#sast
+#sast#sast
+for submission in hot_posts:
+   if not submission.stickied:
