@@ -1,4 +1,4 @@
-#! /usr/local/bin/python3.5
+#!/usr/bin/python3
 import praw
 import random
 from credentials import reddit
