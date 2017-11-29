@@ -1,4 +1,9 @@
+#ignore our credential file
 credentials.py
+
+#ignore the compiled c++ file
+*.out
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
