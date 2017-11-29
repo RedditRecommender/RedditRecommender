@@ -46,17 +46,17 @@ def main():
     #once we have a list of users, we will see which subreddits they have commented on
     for user in userList:
         comments = reddit.redditor(user).comments.new(limit=NUM_COMMENTS_PER_USER)
-        commentsLen = sum(1 for _ in comments)
-        print("Found {} comment{} for user {}".format(commentsLen, "s" if commentsLen != 1 else "", user))
+        
+        for i, comment in enumerate(comments):
 
-        i = 0
-        for comment in comments:
             subredditName = str(comment.subreddit.display_name)
-            print("Comment {}/{}: {}".format(i+1, commentsLen, subredditName))
+            print("Processing comment #{} from user '{}' in subreddit '{}'".format(i+1, user, subredditName))
 
             #since this user commented in this subreddit...
             #1) make sure that the user is added to our mapping tool
             if user not in usernameToIdMap:
+                print("New user '{}' recieves id {}".format(user, nextUsernameID))
+
                 usernameToIdMap[user] = nextUsernameID
                 nextUsernameID += 1
 
@@ -65,15 +65,16 @@ def main():
 
             #2) make sure that the subreddit is added to its mapping tool
             if subredditName not in subredditToIdMap:
+                print("New subreddit '{}' recieves id {}".format(subredditName, nextSubredditID))
+
                 subredditToIdMap[subredditName] = nextSubredditID
                 nextSubredditID += 1
 
             #3) make sure that this subreddit is stored within the subredditsForUser
             if subredditName not in subredditsForUser[user]:
+                print("Subreddit '{}' gets added to user '{}'".format(subredditName, user))
                 subredditsForUser[user].append(subredditName)
 
-            #increase our loop counter
-            i += 1
 
 def generate_output_files():
     print("*** Generate output files function")
