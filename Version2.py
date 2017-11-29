@@ -7,7 +7,9 @@ import praw
 import json
 import sys
 import traceback #This is used for debugging if an exception is raised
+from statistics import mean, median, mode
 from credentials import reddit
+
 
 #Put some globals up top, this way it is easy to configure how much work is to be done at a time
 NUM_RANDOM_SUBREDDITS = 3
@@ -100,6 +102,27 @@ def generate_output_files():
         for username, subredditList in data:
             for subreddit in sorted(subredditList, key=lambda x: subredditToIdMap[x]): #and then sort by the id of the subreddit
                 file.write("{} {}\n".format(usernameToIdMap[username], subredditToIdMap[subreddit]))
+
+    subredditCountPerUser = [len(subs) for subs in subredditsForUser.values()]
+    userCountPerSubreddit = [sum(1 if sub in subredditsForUser[user] else 0 for user in usernameToIdMap.keys()) for sub in subredditToIdMap.keys()]
+
+    print("Statistics:")
+    print("  Subreddit count per user:")
+    print("    min: {}".format(min(subredditCountPerUser)))
+    print("    max: {}".format(max(subredditCountPerUser)))
+    print("    mean: {}".format(mean(subredditCountPerUser)))
+    print("    median: {}".format(median(subredditCountPerUser)))
+    print("    mode: {}".format(mode(subredditCountPerUser)))
+    print("    sum: {}".format(sum(subredditCountPerUser)))
+
+    print("  User count per subreddit:")
+    print("    min: {}".format(min(userCountPerSubreddit)))
+    print("    max: {}".format(max(userCountPerSubreddit)))
+    print("    mean: {}".format(mean(userCountPerSubreddit)))
+    print("    median: {}".format(median(userCountPerSubreddit)))
+    print("    mode: {}".format(mode(userCountPerSubreddit)))
+    print("    sum: {}".format(sum(userCountPerSubreddit)))
+
 
 
 def load_globals():
