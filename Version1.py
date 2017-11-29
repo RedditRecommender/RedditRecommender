@@ -22,7 +22,7 @@ userList = set()
 subredditListMaster = set()
 
 #finds random subredits then gathers users in said subreddit
-for subreddit in range(2):
+for subreddit in range(10):
     sub = (reddit.subreddit('random'))
     for comments in sub.comments(limit = 5):
         userList.add(comments.author)
@@ -35,7 +35,7 @@ for user in userList:
     #number of comments for specific user
     numberOfComments = 0
     #finds the subreddit each comment resides in
-    for comment in reddit.redditor(redditor).comments.new(limit=4):
+    for comment in reddit.redditor(redditor).comments.new(limit=15):
         subredditName = str(comment.subreddit.display_name)
         #checks if subreddit is in Master list or not
         if subredditName not in subredditListMaster:
