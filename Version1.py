@@ -6,40 +6,40 @@ from credentials import reddit
 userMap = {}
 #dictionary for map of subreddit to ID
 subredditMap = {}
-
-#list of users
-userList = []
-#finds random subredits then gathers users in said subreddit
-for subreddit in range(5):
-    sub = (reddit.subreddit('random'))
-    for comments in sub.comments(limit = 10):
-        if comments.author not in userList:
-            userList.append(comments.author)
-
-#dictionary for users and subreddits
-userSubsDict = {}
 #ID for users and subreddits 
 userNumber = 0
 subNumber = 0
+
+#list of users
+userList = set()
+#finds random subredits then gathers users in said subreddit
+for subreddit in range(1):
+    sub = (reddit.subreddit('random'))
+    for comments in sub.comments(limit = 10):
+        userList.add(comments.author)
+
+#dictionary for users and subreddits
+userSubsDict = {}
+
 #finds the redditors subreddits through their comments
+subList = set()
 for user in userList:
     redditor = str(user)
     numberOfComments = 0
-    subList = []
-    for comment in reddit.redditor(redditor).comments.new(limit=50):
+    for comment in reddit.redditor(redditor).comments.new(limit=3):
         subRedditName = str(comment.subreddit.display_name)
-        if(subRedditName in subList):
-            pass
-        else:
+        if subRedditName not in subList:
             numberOfComments += 1
-            subList.append(subRedditName)
+            subList.add(subRedditName)
             subredditMap[subRedditName] = subNumber
             subNumber += 1
+    #adds redditor only if they have comments
     if numberOfComments > 0:
         userMap[redditor] = userNumber
         userSubsDict[redditor] = subList
         userNumber += 1
 
+#opens a file and adds mapped values
 file = open("data.txt", "w")
 for user,subRedditList in userSubsDict.items():
     for item in subRedditList:
@@ -47,11 +47,24 @@ for user,subRedditList in userSubsDict.items():
         subRedditID = subredditMap[item]
         line = "{} {}".format(userID, subRedditID)
         file.write(line + '\n')
+file.close();
+
+file = open("userMap.txt", "w")
+for user,ID in userMap.items():
+    file.write("{} {}\n".format(user, ID))
+file.close()
+
+file = open("subRedditMap.txt", "w")
+for subReddit,ID in subredditMap.items():
+    file.write("{} {}\n".format(subReddit, ID))
+file.close()
+
+
 
 print(userSubsDict)
 print(userMap)
 print(subredditMap)
-file.close();
+
 # redditor = reddit.redditor('TrustMeIKnowThisOne')
 
 # print(dir(redditor))
