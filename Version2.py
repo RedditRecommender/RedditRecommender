@@ -5,6 +5,7 @@
 
 import praw
 import json
+import sys
 import traceback #This is used for debugging if an exception is raised
 from credentials import reddit
 
@@ -40,10 +41,18 @@ def main():
         for comment in subreddit.comments(limit = NUM_COMMENTS_PER_SUBREDDIT):
             userList.add(str(comment.author))
     
+    print("Found {} random users from {} random subreddits".format(len(userList), NUM_RANDOM_SUBREDDITS))
+
     #once we have a list of users, we will see which subreddits they have commented on
     for user in userList:
-        for comment in reddit.redditor(user).comments.new(limit=NUM_COMMENTS_PER_USER):
+        comments = reddit.redditor(user).comments.new(limit=NUM_COMMENTS_PER_USER)
+        commentsLen = sum(1 for _ in comments)
+        print("Found {} comment{} for user {}".format(commentsLen, "s" if commentsLen != 1 else "", user))
+
+        i = 0
+        for comment in comments:
             subredditName = str(comment.subreddit.display_name)
+            print("Comment {}/{}: {}".format(i+1, commentsLen, subredditName))
 
             #since this user commented in this subreddit...
             #1) make sure that the user is added to our mapping tool
@@ -63,23 +72,28 @@ def main():
             if subredditName not in subredditsForUser[user]:
                 subredditsForUser[user].append(subredditName)
 
+            #increase our loop counter
+            i += 1
 
 def generate_output_files():
     print("*** Generate output files function")
 
     #generate usernameMap.txt
+    print("Writing {} entries to usernameMap.txt".format(len(usernameToIdMap)))
     with open("usernameMap.txt", "w") as file:
         data = sorted(usernameToIdMap.items(), key=lambda x: x[1]) #sort by second elment, the id
         for username, ID in data:
             file.write("{} {}\n".format(username, ID))
 
     #generate subredditMap.txt
+    print("Writing {} entries to subredditMap.txt".format(len(subredditToIdMap)))
     with open("subredditMap.txt", "w") as file:
         data = sorted(subredditToIdMap.items(), key=lambda x: x[1]) #sort by second elment, the id
         for subredditName, ID in data:
             file.write("{} {}\n".format(subredditName, ID))
     
     #generate data.txt
+    print("Writing {} entries to data.txt".format(sum(len(x) for x in subredditsForUser.values())))
     with open("data.txt", "w") as file:
         data = sorted(subredditsForUser.items(), key=lambda x: usernameToIdMap[x[0]]) #sort by the id of the username, which is the first element
         for username, subredditList in data:
@@ -111,6 +125,8 @@ def load_globals():
     nextUsernameID = max(usernameToIdMap.values() or [-1]) + 1
     nextSubredditID = max(subredditToIdMap.values() or [-1]) + 1
 
+    print("Loaded globals!")
+
 
 def save_globals():
     print("*** Save function")
@@ -126,31 +142,39 @@ def save_globals():
     with open("save_data.txt", "w") as file:
         file.write(json.dumps(save_state))
 
+    print("Saved globals!")
+
 
 if __name__ == "__main__":
     try: 
         load_globals()
     except Exception as e:
         print("ERROR loading globals from file")
-        traceback.print_exc()
+        traceback.print_exc(file=sys.stdout)
+
+    print("")
 
     try: 
         main()
     except Exception as e:
         print("ERROR in main function")
-        traceback.print_exc()
+        traceback.print_exc(file=sys.stdout)
+
+    print("")
 
     try: 
         generate_output_files()
     except Exception as e:
         print("ERROR generating output files")
-        traceback.print_exc()
+        traceback.print_exc(file=sys.stdout)
+
+    print("")
 
     try: 
         save_globals()
     except Exception as e:
         print("ERROR saving globals to file")
-        traceback.print_exc()
+        traceback.print_exc(file=sys.stdout)
     
     
     
