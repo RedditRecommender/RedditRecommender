@@ -1,4 +1,9 @@
 #!/usr/bin/python3
+
+#Version 1: on a single run, some number of users and sub reddits are fetched
+#but between runs, there is no retain of previous knowledge. Version 2 hopes
+#to solve this.
+
 import praw
 from credentials import reddit
 
