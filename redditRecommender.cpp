@@ -16,6 +16,10 @@ using namespace std;
 
 //global variables
 int* globalMatrix = NULL; //1 dimensional.  Access index with [convertUserSubToIndex(userID, subID)]
+int* userTotal = NULL;
+int* subTotal = NULL;
+int grandTotal = 0;
+
 int numberOfUsers;
 int numberOfSubs;
 
@@ -47,7 +51,7 @@ int main(int argc, char* argv[])
     vector<pair<int, int> > allPairs;
 
     //open and read the file
-    printf("Reading the file: %s\n", fileName);
+    printf("\nReading the file: %s\n", fileName);
     fstream dataFile(fileName, ios_base::in);
 
     while(dataFile >> userID >> subID)
@@ -73,8 +77,11 @@ int main(int argc, char* argv[])
     numberOfSubs = maxSubID + 1;
 
     //then we need to allocate the memory for the matrix (1 dimensional)
-    globalMatrix = (int*) malloc(numberOfUsers * numberOfSubs * sizeof(int));
+    globalMatrix = (int*) calloc(numberOfUsers * numberOfSubs, sizeof(int));
+    userTotal = (int*) calloc(numberOfUsers, sizeof(int));
+    subTotal = (int*) calloc(numberOfSubs, sizeof(int));
 
+    printf("File has %d usernames and %d subreddits.\n", numberOfUsers, numberOfSubs);
     printf("Allocated %d cells\n", numberOfUsers * numberOfSubs);
 
     //we will iterate through all of the pairs and populate our matrix
@@ -82,7 +89,11 @@ int main(int argc, char* argv[])
         pair<int, int> thisPair = *it;
         userID = thisPair.first;
         subID = thisPair.second;
+
         globalMatrix[convertUserSubToIndex(userID, subID)] = 1;
+        userTotal[userID] += 1;
+        subTotal[subID] += 1;
+        grandTotal += 1;
     }
 
     //so now we have our global matrix, so print it
@@ -91,14 +102,14 @@ int main(int argc, char* argv[])
 
 int convertUserSubToIndex(int userID, int subredditID)
 {
-    return numberOfSubs * subredditID + userID;
+    return numberOfSubs * userID + subredditID;
 }
 
 void printGlobalMatrix()
 {
     printf("Graph: (%d users) x (%d subreddits):\n", numberOfUsers, numberOfSubs);
 
-    int columnWidth = 4;
+    int columnWidth = 5;
     //print spacing before top row
     printf("%*s|", columnWidth, "");
 
@@ -108,10 +119,11 @@ void printGlobalMatrix()
         printf("%*d|", columnWidth, x);
         if(x == MAX_COLS_TO_PRINT)
         {
-            printf(" ...");
+            printf("%*s|", columnWidth, ".. ");
             break;
         }
     }
+    printf("%*s|", columnWidth, "TOT");
     printf("\n");
 
     //print table
@@ -123,21 +135,46 @@ void printGlobalMatrix()
         //and print the rest of this row
         for(int x=0;x<numberOfSubs;x++)
         {
-            printf("%*d|", columnWidth, globalMatrix[convertUserSubToIndex(x, y)]);
+            printf("%*d|", columnWidth, globalMatrix[convertUserSubToIndex(y, x)]);
             if(x == MAX_COLS_TO_PRINT)
             {
-                printf(" ...");
+                printf("%*s|", columnWidth, ".. ");
                 break;
             }
         }
 
+        printf("%*d|", columnWidth, userTotal[y]);
         printf("\n");
 
         if(y == MAX_ROWS_TO_PRINT)
         {
-            printf("   .\n   .\n   .\n");
+            printf("%*s|", columnWidth, ". ");
+            for(int x=0;x<numberOfSubs;x++)
+            {
+                printf("%*s|", columnWidth, ". ");
+                if(x == MAX_COLS_TO_PRINT)
+                {
+                    printf("%*s|", columnWidth, ".. ");
+                    printf("%*s|", columnWidth, ". ");
+                    break;
+                }
+            }
+            printf("\n");
             break;
         }
     }
 
+    printf("%*s|", columnWidth, "TOT");
+    for(int x=0;x<numberOfSubs;x++)
+    {
+        printf("%*d|", columnWidth, subTotal[x]);
+        if(x == MAX_COLS_TO_PRINT)
+        {
+            printf("%*s|", columnWidth, ".. ");
+            break;
+        }
+    }
+    printf("%*d|", columnWidth, grandTotal);
+
+    printf("\n\n");
 }
