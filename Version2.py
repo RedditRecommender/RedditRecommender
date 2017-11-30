@@ -19,9 +19,7 @@ argumentParser = argparse.ArgumentParser()
 actionGroup = argumentParser.add_mutually_exclusive_group(required=True)
 actionGroup.add_argument("-n", "--new", action="store_true", help="Search for new users in random subreddits")
 actionGroup.add_argument("-e", "--existing", action="store_true", help="Search for more comments for users that we've already found")
-
-#an option to specify a report
-argumentParser.add_argument("-r", "--report", action="store_true", help="Display a report at the end of the run showing min, max, avg, etc.")
+actionGroup.add_argument("-r", "--report", action="store_true", help="Display a report at the end of the run showing min, max, avg, etc.")
 
 #create a group so they can specify "--verbose or --quiet"
 verboseQuietGroup = argumentParser.add_mutually_exclusive_group()
@@ -47,6 +45,11 @@ subredditsForUser = {}
 
 def main(args):
     print("*** Main function")
+
+    #see if all we want is a report
+    if args.report:
+        print_report()
+        return None
 
     #since we will be modifying these globals, make sure we are using the globals
     global nextUsernameID, nextSubredditID
@@ -110,6 +113,28 @@ def main(args):
                 subredditsForUser[user].append(subredditName)
 
 
+def print_report():
+    print("Generating report")
+    subredditCountPerUser = [len(subs) for subs in subredditsForUser.values()]
+    userCountPerSubreddit = [sum(1 if sub in subredditsForUser[user] else 0 for user in usernameToIdMap.keys()) for sub in subredditToIdMap.keys()]
+
+    print("Statistics:")
+    print("  Subreddit count per user:")
+    print("    min: {}".format(min(subredditCountPerUser)))
+    print("    max: {}".format(max(subredditCountPerUser)))
+    print("    mean: {}".format(mean(subredditCountPerUser)))
+    print("    median: {}".format(median(subredditCountPerUser)))
+    print("    mode: {}".format(mode(subredditCountPerUser)))
+    print("    sum: {}".format(sum(subredditCountPerUser)))
+
+    print("  User count per subreddit:")
+    print("    min: {}".format(min(userCountPerSubreddit)))
+    print("    max: {}".format(max(userCountPerSubreddit)))
+    print("    mean: {}".format(mean(userCountPerSubreddit)))
+    print("    median: {}".format(median(userCountPerSubreddit)))
+    print("    mode: {}".format(mode(userCountPerSubreddit)))
+    print("    sum: {}".format(sum(userCountPerSubreddit)))
+
 def generate_output_files(args):
     print("*** Generate output files function")
 
@@ -134,29 +159,6 @@ def generate_output_files(args):
         for username, subredditList in data:
             for subreddit in sorted(subredditList, key=lambda x: subredditToIdMap[x]): #and then sort by the id of the subreddit
                 file.write("{} {}\n".format(usernameToIdMap[username], subredditToIdMap[subreddit]))
-
-    if args.report:
-        print("Generating report")
-        subredditCountPerUser = [len(subs) for subs in subredditsForUser.values()]
-        userCountPerSubreddit = [sum(1 if sub in subredditsForUser[user] else 0 for user in usernameToIdMap.keys()) for sub in subredditToIdMap.keys()]
-
-        print("Statistics:")
-        print("  Subreddit count per user:")
-        print("    min: {}".format(min(subredditCountPerUser)))
-        print("    max: {}".format(max(subredditCountPerUser)))
-        print("    mean: {}".format(mean(subredditCountPerUser)))
-        print("    median: {}".format(median(subredditCountPerUser)))
-        print("    mode: {}".format(mode(subredditCountPerUser)))
-        print("    sum: {}".format(sum(subredditCountPerUser)))
-
-        print("  User count per subreddit:")
-        print("    min: {}".format(min(userCountPerSubreddit)))
-        print("    max: {}".format(max(userCountPerSubreddit)))
-        print("    mean: {}".format(mean(userCountPerSubreddit)))
-        print("    median: {}".format(median(userCountPerSubreddit)))
-        print("    mode: {}".format(mode(userCountPerSubreddit)))
-        print("    sum: {}".format(sum(userCountPerSubreddit)))
-
 
 
 def load_globals():
