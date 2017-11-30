@@ -10,8 +10,12 @@
 
 using namespace std;
 
+//constants
+#define MAX_COLS_TO_PRINT 16
+#define MAX_ROWS_TO_PRINT 16
+
 //global variables
-int* globalMatrix; //1 dimensional.  Access index with [convert2Dto1D(userID, subID)]
+int* globalMatrix = NULL; //1 dimensional.  Access index with [convertUserSubToIndex(userID, subID)]
 int numberOfUsers;
 int numberOfSubs;
 
@@ -71,6 +75,8 @@ int main(int argc, char* argv[])
     //then we need to allocate the memory for the matrix (1 dimensional)
     globalMatrix = (int*) malloc(numberOfUsers * numberOfSubs * sizeof(int));
 
+    printf("Allocated %d cells\n", numberOfUsers * numberOfSubs);
+
     //we will iterate through all of the pairs and populate our matrix
     for(vector<pair<int, int> >::iterator it = allPairs.begin(); it != allPairs.end(); it++){
         pair<int, int> thisPair = *it;
@@ -83,14 +89,15 @@ int main(int argc, char* argv[])
     printGlobalMatrix();
 }
 
-int convertUserSubToIndex(int x, int y)
+int convertUserSubToIndex(int userID, int subredditID)
 {
-    return numberOfSubs * y + x;
+    return numberOfSubs * subredditID + userID;
 }
 
 void printGlobalMatrix()
 {
     printf("Graph: (%d users) x (%d subreddits):\n", numberOfUsers, numberOfSubs);
+
     int columnWidth = 4;
     //print spacing before top row
     printf("%*s|", columnWidth, "");
@@ -99,6 +106,11 @@ void printGlobalMatrix()
     for(int x=0;x<numberOfSubs;x++)
     {
         printf("%*d|", columnWidth, x);
+        if(x == MAX_COLS_TO_PRINT)
+        {
+            printf(" ...");
+            break;
+        }
     }
     printf("\n");
 
@@ -112,8 +124,20 @@ void printGlobalMatrix()
         for(int x=0;x<numberOfSubs;x++)
         {
             printf("%*d|", columnWidth, globalMatrix[convertUserSubToIndex(x, y)]);
+            if(x == MAX_COLS_TO_PRINT)
+            {
+                printf(" ...");
+                break;
+            }
         }
 
         printf("\n");
+
+        if(y == MAX_ROWS_TO_PRINT)
+        {
+            printf("   .\n   .\n   .\n");
+            break;
+        }
     }
+
 }
