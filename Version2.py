@@ -20,6 +20,7 @@ actionGroup = argumentParser.add_mutually_exclusive_group(required=True)
 actionGroup.add_argument("-n", "--new", action="store_true", help="Search for new users in random subreddits")
 actionGroup.add_argument("-e", "--existing", action="store_true", help="Search for more comments for users that we've already found")
 actionGroup.add_argument("-r", "--report", action="store_true", help="Display a report at the end of the run showing min, max, avg, etc.")
+actionGroup.add_argument("--recommend", help="Recommend a subreddit to a user")
 
 #create a group so they can specify "--verbose or --quiet"
 verboseQuietGroup = argumentParser.add_mutually_exclusive_group()
@@ -51,6 +52,10 @@ def main(args):
         print_report()
         return None
 
+    if args.recommend:
+        print("Recommending a subreddit to {}".format(args.recommend))
+        return None
+
     #since we will be modifying these globals, make sure we are using the globals
     global nextUsernameID, nextSubredditID
 
@@ -66,13 +71,17 @@ def main(args):
             for comment in subreddit.comments(limit = NUM_COMMENTS_PER_SUBREDDIT):
                 userList.add(str(comment.author))
         
-        verbose_print(0, args, "Found {} random users from {} random subreddits".format(len(userList), NUM_RANDOM_SUBREDDITS))
+        verbose_print(1, args, "Found {} random users from {} random subreddits".format(len(userList), NUM_RANDOM_SUBREDDITS))
     elif args.existing:
+        if(len(usernameToIdMap) == 0):
+            print("There aren't any existing users.")
+            return None
+
         #shuffle the list of usernames
         potentialUsers = list(usernameToIdMap.keys())
         shuffle(potentialUsers)
         
-        verbose_print(0, args, "Using {} existing users".format(min(NUM_RANDOM_EXISTING_USERS, len(potentialUsers))))
+        verbose_print(1, args, "Using {} existing users".format(min(NUM_RANDOM_EXISTING_USERS, len(potentialUsers))))
         
         #and fill userList with a slice from the list
         userList = set(potentialUsers[:min(NUM_RANDOM_EXISTING_USERS, len(potentialUsers))])
@@ -87,12 +96,12 @@ def main(args):
 
         for i, comment in enumerate(comments):
             subredditName = str(comment.subreddit.display_name)
-            verbose_print(1, args, "Processing comment #{}/{} in subreddit '{}'".format(i+1, commentsLen, subredditName))
+            verbose_print(2, args, "Processing comment #{}/{} in subreddit '{}'".format(i+1, commentsLen, subredditName))
 
             #since this user commented in this subreddit...
             #1) make sure that the user is added to our mapping tool
             if user not in usernameToIdMap:
-                verbose_print(0, args, "New user '{}' recieves id {}".format(user, nextUsernameID))
+                verbose_print(1, args, "New user '{}' recieves id {}".format(user, nextUsernameID))
 
                 usernameToIdMap[user] = nextUsernameID
                 nextUsernameID += 1
@@ -102,7 +111,7 @@ def main(args):
 
             #2) make sure that the subreddit is added to its mapping tool
             if subredditName not in subredditToIdMap:
-                verbose_print(0, args, "New subreddit '{}' recieves id {}".format(subredditName, nextSubredditID))
+                verbose_print(1, args, "New subreddit '{}' recieves id {}".format(subredditName, nextSubredditID))
 
                 subredditToIdMap[subredditName] = nextSubredditID
                 nextSubredditID += 1
