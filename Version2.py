@@ -14,13 +14,17 @@ from credentials import reddit
 
 #our argument parser
 argumentParser = argparse.ArgumentParser()
+args = None
 
-#create a group so they can specify "--new or --existing"
+#create a group so they can specify "--new or --existing or --report or --recommend"
 actionGroup = argumentParser.add_mutually_exclusive_group(required=True)
 actionGroup.add_argument("-n", "--new", action="store_true", help="Search for new users in random subreddits")
 actionGroup.add_argument("-e", "--existing", action="store_true", help="Search for more comments for users that we've already found")
 actionGroup.add_argument("-r", "--report", action="store_true", help="Display a report at the end of the run showing min, max, avg, etc.")
 actionGroup.add_argument("--recommend", metavar="USER", help="Recommend a subreddit to a user")
+
+#we want a flag to determine whether or not we are trying to evaluate our performance
+argumentParser.add_argument("--evaluate", action="store_true", help="When recommending a subreddit to a user, this will determine if it was a good recommendation")
 
 #create a group so they can specify "--verbose or --quiet"
 verboseQuietGroup = argumentParser.add_mutually_exclusive_group()
@@ -46,9 +50,6 @@ subredditsForUser = {}
 
 def main():
     print("*** Main function")
-
-    #since we may be modifying these globals, make sure we are using the globals
-    global nextUsernameID, nextSubredditID
 
     #see if all we want is a report
     if args.report:
@@ -79,14 +80,18 @@ def main():
                     recommendId = existingId
                     break
 
-        #By now, we either have an ID (meaning existing username) or not (meaning never-before-seen username)
-        if recommendId is not None:
-            #if we have seen this username before, we will use it to score our accuracy
-            print("User '{}' has {} subreddits they have commented in".format(recommendUsername, len(subredditsForUser[recommendUsername])))
+        if recommendId is None:
+            print("No existing data for user '{}'".format(recommendUsername))
+
+        #We need to get some comments for this user to make sure we know what they've been up to.
+        print("Getting new comments for user '{}'".format(recommendUsername))
+        get_comments_for_user(recommendUsername)
+
+        if args.evaluate:
+            print("Evaluate: Coming soon to theaters near you!") #TODO: evaluating how well our recommender works
         else:
-            #and if we have not seen this username before, we need to pull in some comments for them
-            
             pass
+
 
         return None
 
@@ -105,7 +110,7 @@ def main():
         verbose_print(1, "Found {} random users from {} random subreddits".format(len(userList), NUM_RANDOM_SUBREDDITS))
     elif args.existing:
         if(len(usernameToIdMap) == 0):
-            print("There aren't any existing users.")
+            verbose_print(0, "There aren't any existing users.")
             return None
 
         #shuffle the list of usernames
@@ -124,38 +129,53 @@ def main():
 
 
 def get_comments_for_user(user):
-    #make sure that the user is added to its mapping tool
-    if user not in usernameToIdMap:
-        verbose_print(1, "New user '{}' recieves id {}".format(user, nextUsernameID))
-
-        usernameToIdMap[user] = nextUsernameID
-        nextUsernameID += 1
-
-        #and we will need to create an empty list for them in subredditsForUser
-        subredditsForUser[user] = []
+    #since we may be modifying these globals, make sure we are using the globals
+    global nextUsernameID, nextSubredditID
 
     #grab some comments for this user
-    comments = list(reddit.redditor(user).comments.new(limit=NUM_COMMENTS_PER_USER))
+    try:
+        comments = list(reddit.redditor(user).comments.new(limit=NUM_COMMENTS_PER_USER))
+    except:
+        verbose_print(0, "Username '{}' does not exist".format(user))
+        return None
+
     commentsLen = len(comments)
-    
+
     verbose_print(0, "Found {} comments for user '{}'".format(commentsLen, user))
 
     for i, comment in enumerate(comments):
+        commentUser = str(comment.author)
+        if user != commentUser:
+            verbose_print(0, "Using username '{}' instead of '{}'".format(commentUser, user))
+
         subredditName = str(comment.subreddit.display_name)
         verbose_print(2, "Processing comment #{}/{} in subreddit '{}'".format(i+1, commentsLen, subredditName))
 
         #since this user commented in this subreddit...
-        #1) make sure that the subreddit is added to its mapping tool
+        #1) make sure that the user is added to its mapping tool
+        if commentUser not in usernameToIdMap:
+            verbose_print(1, "New user '{}' recieves id {}".format(commentUser, nextUsernameID))
+
+            usernameToIdMap[commentUser] = nextUsernameID
+            nextUsernameID += 1
+
+            #and we will need to create an empty list for them in subredditsForUser
+            subredditsForUser[commentUser] = []
+
+        #2) make sure that the subreddit is added to its mapping tool
         if subredditName not in subredditToIdMap:
             verbose_print(1, "New subreddit '{}' recieves id {}".format(subredditName, nextSubredditID))
 
             subredditToIdMap[subredditName] = nextSubredditID
             nextSubredditID += 1
 
-        #2) make sure that this subreddit is stored within the subredditsForUser
-        if subredditName not in subredditsForUser[user]:
-            verbose_print(0, "Subreddit '{}' added to user '{}'".format(subredditName, user))
-            subredditsForUser[user].append(subredditName)
+        #3) make sure that this subreddit is stored within the subredditsForUser
+        if subredditName not in subredditsForUser[commentUser]:
+            verbose_print(0, "Subreddit '{}' added to user '{}'".format(subredditName, commentUser))
+            subredditsForUser[commentUser].append(subredditName)
+
+    #basically, since we got here, that means user existed
+    return True
 
 
 def print_report():
@@ -258,6 +278,10 @@ def verbose_print(level, msg):
 if __name__ == "__main__":
     global args
     args = argumentParser.parse_args()
+
+    #ensure they are not evaluating anything other than recommend
+    if args.evaluate and not args.recommend:
+        argumentParser.error("Cannot use flag --evaluate without --recommend")
 
     try: 
         load_globals()
