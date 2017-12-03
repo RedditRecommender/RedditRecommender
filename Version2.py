@@ -20,7 +20,7 @@ actionGroup = argumentParser.add_mutually_exclusive_group(required=True)
 actionGroup.add_argument("-n", "--new", action="store_true", help="Search for new users in random subreddits")
 actionGroup.add_argument("-e", "--existing", action="store_true", help="Search for more comments for users that we've already found")
 actionGroup.add_argument("-r", "--report", action="store_true", help="Display a report at the end of the run showing min, max, avg, etc.")
-actionGroup.add_argument("--recommend", help="Recommend a subreddit to a user")
+actionGroup.add_argument("--recommend", metavar="USER", help="Recommend a subreddit to a user")
 
 #create a group so they can specify "--verbose or --quiet"
 verboseQuietGroup = argumentParser.add_mutually_exclusive_group()
@@ -44,8 +44,11 @@ nextSubredditID = 0
 #Here we will store which subreddits each user has a comment in the key will be the username, the value will be a list of subreddits
 subredditsForUser = {}
 
-def main(args):
+def main():
     print("*** Main function")
+
+    #since we may be modifying these globals, make sure we are using the globals
+    global nextUsernameID, nextSubredditID
 
     #see if all we want is a report
     if args.report:
@@ -53,25 +56,53 @@ def main(args):
         return None
 
     if args.recommend:
-        print("Recommending a subreddit to {}".format(args.recommend))
-        return None
+        
+        #search for the id of this user
+        recommendUsername = args.recommend
+        recommendUsernameLower = recommendUsername.lower()
+        recommendId = None
 
-    #since we will be modifying these globals, make sure we are using the globals
-    global nextUsernameID, nextSubredditID
+        print("Recommending a subreddit to username '{}'".format(recommendUsername))
+
+        #simple case, the username is already in our dict, so we can access directly
+        if recommendUsername in subredditsForUser:
+            recommendId = usernameToIdMap[recommendUsername]
+            print("User '{}' is already in our matrix with the id of {}".format(recommendUsername, recommendId))
+        
+        #more difficult case, we need to search the keys to find a case insensite match
+        if recommendId is None:
+            for existingUsername, existingId in usernameToIdMap.items():
+                if recommendUsernameLower == existingUsername.lower():
+                    print("Found matching username '{}' for '{}' with the id of {}".format(existingUsername, recommendUsername, existingId))
+                    recommendUsername = existingUsername
+                    recommendUsernameLower = recommendUsername.lower()
+                    recommendId = existingId
+                    break
+
+        #By now, we either have an ID (meaning existing username) or not (meaning never-before-seen username)
+        if recommendId is not None:
+            #if we have seen this username before, we will use it to score our accuracy
+            print("User '{}' has {} subreddits they have commented in".format(recommendUsername, len(subredditsForUser[recommendUsername])))
+        else:
+            #and if we have not seen this username before, we need to pull in some comments for them
+            
+            pass
+
+        return None
 
     #we will have a list of users here, we will keep track of them before putting them in the global
     #this way, we know they at least have one comment!
     userList = set()
 
     if args.new:
-        verbose_print(1, args, "Searching for new users...")
+        verbose_print(1, "Searching for new users...")
         #finds random subredits then gathers users in said subreddit
         for _ in range(NUM_RANDOM_SUBREDDITS):
             subreddit = reddit.subreddit('random')
             for comment in subreddit.comments(limit = NUM_COMMENTS_PER_SUBREDDIT):
                 userList.add(str(comment.author))
         
-        verbose_print(1, args, "Found {} random users from {} random subreddits".format(len(userList), NUM_RANDOM_SUBREDDITS))
+        verbose_print(1, "Found {} random users from {} random subreddits".format(len(userList), NUM_RANDOM_SUBREDDITS))
     elif args.existing:
         if(len(usernameToIdMap) == 0):
             print("There aren't any existing users.")
@@ -81,7 +112,7 @@ def main(args):
         potentialUsers = list(usernameToIdMap.keys())
         shuffle(potentialUsers)
         
-        verbose_print(1, args, "Using {} existing users".format(min(NUM_RANDOM_EXISTING_USERS, len(potentialUsers))))
+        verbose_print(1, "Using {} existing users".format(min(NUM_RANDOM_EXISTING_USERS, len(potentialUsers))))
         
         #and fill userList with a slice from the list
         userList = set(potentialUsers[:min(NUM_RANDOM_EXISTING_USERS, len(potentialUsers))])
@@ -89,37 +120,42 @@ def main(args):
 
     #once we have a list of users, we will see which subreddits they have commented on
     for user in userList:
-        comments = list(reddit.redditor(user).comments.new(limit=NUM_COMMENTS_PER_USER))
-        commentsLen = len(comments)
-        
-        verbose_print(0, args, "Found {} comments for user '{}'".format(commentsLen, user))
+        get_comments_for_user(user)
 
-        for i, comment in enumerate(comments):
-            subredditName = str(comment.subreddit.display_name)
-            verbose_print(2, args, "Processing comment #{}/{} in subreddit '{}'".format(i+1, commentsLen, subredditName))
 
-            #since this user commented in this subreddit...
-            #1) make sure that the user is added to our mapping tool
-            if user not in usernameToIdMap:
-                verbose_print(1, args, "New user '{}' recieves id {}".format(user, nextUsernameID))
+def get_comments_for_user(user):
+    #make sure that the user is added to its mapping tool
+    if user not in usernameToIdMap:
+        verbose_print(1, "New user '{}' recieves id {}".format(user, nextUsernameID))
 
-                usernameToIdMap[user] = nextUsernameID
-                nextUsernameID += 1
+        usernameToIdMap[user] = nextUsernameID
+        nextUsernameID += 1
 
-                #and we will need to create an empty list for them in subredditsForUser
-                subredditsForUser[user] = []
+        #and we will need to create an empty list for them in subredditsForUser
+        subredditsForUser[user] = []
 
-            #2) make sure that the subreddit is added to its mapping tool
-            if subredditName not in subredditToIdMap:
-                verbose_print(1, args, "New subreddit '{}' recieves id {}".format(subredditName, nextSubredditID))
+    #grab some comments for this user
+    comments = list(reddit.redditor(user).comments.new(limit=NUM_COMMENTS_PER_USER))
+    commentsLen = len(comments)
+    
+    verbose_print(0, "Found {} comments for user '{}'".format(commentsLen, user))
 
-                subredditToIdMap[subredditName] = nextSubredditID
-                nextSubredditID += 1
+    for i, comment in enumerate(comments):
+        subredditName = str(comment.subreddit.display_name)
+        verbose_print(2, "Processing comment #{}/{} in subreddit '{}'".format(i+1, commentsLen, subredditName))
 
-            #3) make sure that this subreddit is stored within the subredditsForUser
-            if subredditName not in subredditsForUser[user]:
-                verbose_print(0, args, "Subreddit '{}' added to user '{}'".format(subredditName, user))
-                subredditsForUser[user].append(subredditName)
+        #since this user commented in this subreddit...
+        #1) make sure that the subreddit is added to its mapping tool
+        if subredditName not in subredditToIdMap:
+            verbose_print(1, "New subreddit '{}' recieves id {}".format(subredditName, nextSubredditID))
+
+            subredditToIdMap[subredditName] = nextSubredditID
+            nextSubredditID += 1
+
+        #2) make sure that this subreddit is stored within the subredditsForUser
+        if subredditName not in subredditsForUser[user]:
+            verbose_print(0, "Subreddit '{}' added to user '{}'".format(subredditName, user))
+            subredditsForUser[user].append(subredditName)
 
 
 def print_report():
@@ -144,25 +180,25 @@ def print_report():
     print("    mode: {}".format(mode(userCountPerSubreddit)))
     print("    sum: {}".format(sum(userCountPerSubreddit)))
 
-def generate_output_files(args):
+def generate_output_files():
     print("*** Generate output files function")
 
     #generate usernameMap.txt
-    verbose_print(0, args, "Writing {} entries to usernameMap.txt".format(len(usernameToIdMap)))
+    verbose_print(0, "Writing {} entries to usernameMap.txt".format(len(usernameToIdMap)))
     with open("usernameMap.txt", "w") as file:
         data = sorted(usernameToIdMap.items(), key=lambda x: x[1]) #sort by second elment, the id
         for username, ID in data:
             file.write("{} {}\n".format(username, ID))
 
     #generate subredditMap.txt
-    verbose_print(0, args, "Writing {} entries to subredditMap.txt".format(len(subredditToIdMap)))
+    verbose_print(0, "Writing {} entries to subredditMap.txt".format(len(subredditToIdMap)))
     with open("subredditMap.txt", "w") as file:
         data = sorted(subredditToIdMap.items(), key=lambda x: x[1]) #sort by second elment, the id
         for subredditName, ID in data:
             file.write("{} {}\n".format(subredditName, ID))
     
     #generate data.txt
-    verbose_print(0, args, "Writing {} entries to data.txt".format(sum(len(x) for x in subredditsForUser.values())))
+    verbose_print(0, "Writing {} entries to data.txt".format(sum(len(x) for x in subredditsForUser.values())))
     with open("data.txt", "w") as file:
         data = sorted(subredditsForUser.items(), key=lambda x: usernameToIdMap[x[0]]) #sort by the id of the username, which is the first element
         for username, subredditList in data:
@@ -194,7 +230,7 @@ def load_globals():
     nextUsernameID = max(usernameToIdMap.values() or [-1]) + 1
     nextSubredditID = max(subredditToIdMap.values() or [-1]) + 1
 
-    verbose_print(1, args, "Successfully loaded globals!")
+    verbose_print(1, "Successfully loaded globals!")
 
 
 def save_globals():
@@ -211,15 +247,16 @@ def save_globals():
     with open("save_data.txt", "w") as file:
         file.write(json.dumps(save_state))
 
-    verbose_print(1, args, "Successfully saved globals!")
+    verbose_print(1, "Successfully saved globals!")
 
 
-def verbose_print(level, args, msg):
+def verbose_print(level, msg):
     if not args.quiet and args.verbose >= level: 
         print(msg)
 
 
 if __name__ == "__main__":
+    global args
     args = argumentParser.parse_args()
 
     try: 
@@ -231,7 +268,7 @@ if __name__ == "__main__":
     print("")
 
     try: 
-        main(args)
+        main()
     except Exception as e:
         print("ERROR in main function")
         traceback.print_exc(file=sys.stdout)
@@ -239,7 +276,7 @@ if __name__ == "__main__":
     print("")
 
     try: 
-        generate_output_files(args)
+        generate_output_files()
     except Exception as e:
         print("ERROR generating output files")
         traceback.print_exc(file=sys.stdout)
