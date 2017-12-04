@@ -7,6 +7,7 @@
 #include <utility> // std::pair
 #include <algorithm> // std::stable_sort
 #include <vector>
+#include <map>
 #include <iostream>
 #include <fstream>
 
@@ -26,6 +27,7 @@ int numberOfUsers;
 int numberOfSubs;
 
 int recommendId = -1;
+float similarPercentage = .05f;
 
 //method headers
 int main(int argc, char* argv[]);
@@ -33,19 +35,31 @@ void* recommend(void* rank);
 float sim(int x, int y);
 int convertUserSubToIndex(int x, int y);
 bool similarPairCompare(pair<int, float> i, pair<int, float> j);
+//bool recommendPairCompare(pair<int, int> i, pair<int, int> j);
 void printGlobalMatrix();
+
+
 
 int main(int argc, char* argv[])
 {
     //validate command line args
-    if(argc < 3)
+    if(argc < 4)
     {
-        printf("Usage: ./redditRecommender.out <filename> <usernameID>\n");
+        printf("Usage: ./redditRecommender.out <filename> <usernameID> <similarPercent>\n");
         exit(-1);
     }
     //read command line args
     char* fileName = argv[1];
     recommendId = atoi(argv[2]);
+    int percent = atoi(argv[3]);
+
+    if(percent < 0 || percent > 100)
+    {
+        printf("Similar Percent must be an int in the range of [0-100]\n");
+        exit(-1);
+    }
+
+    similarPercentage = (float) percent / 100;
 
     //keep track of the largest ids that we've seen in the file
     int maxUserID = -1;
@@ -55,11 +69,11 @@ int main(int argc, char* argv[])
     int userID;
     int subID;
 
-    //create a list of pairs that we've read so we don't need to re-read the file
+    //create a vector of pairs that we've read so we don't need to re-read the file
     vector<pair<int, int> > allPairs;
 
     //open and read the file
-    printf("\nReading the file: %s\n", fileName);
+    printf("Reading the file: %s\n", fileName);
     fstream dataFile(fileName, ios_base::in);
 
     while(dataFile >> userID >> subID)
@@ -83,6 +97,11 @@ int main(int argc, char* argv[])
     if(recommendId > maxUserID)
     {
         printf("Could not recommend a subreddit for userId %d since the file only has %d usernames.\n", recommendId, maxUserID + 1);
+        exit(-1);
+    }
+    if(recommendId < 0)
+    {
+        printf("ID cannot be negative\n");
         exit(-1);
     }
 
@@ -135,19 +154,73 @@ void* recommend(void* rank)
             continue;
         }
 
-        //otherwise calculate similarity and add it to our list
+        //otherwise calculate similarity and add it to our vector
         float similarity = sim(recommendId, other);
         similarityVector.push_back(make_pair(other, similarity));
     }
 
-    //sort the list based on the second value of each pair based on the method below
+    //sort the vector based on the second value of each pair based on the method below
     stable_sort(similarityVector.begin(), similarityVector.end(), similarPairCompare);
 
     //output some tasty info
     printf("Contents after sorting:\n");
     for(vector<pair<int, float> >::iterator it=similarityVector.begin(); it != similarityVector.end(); it++)
     {
-        printf("sim(%5d, %5d) => %5.4f\n", recommendId, (*it).first, (*it).second);
+        pair<int, float> p = *it;
+        if(p.second == 0)
+        {
+            break;
+        }
+        printf("sim(%5d, %5d) => %5.4f\n", recommendId, p.first, p.second);
+    }
+
+    //we need to keep track of our candidate recommendations
+    map<int, int> recommendations;
+    //float lastSimilarity = 0;
+
+    //we will need to traverse this vector to find our candidates
+    for(vector<pair<int, float> >::iterator it=similarityVector.begin(); it != similarityVector.end(); it++)
+    {
+        pair<int, float> p = *it;
+        int otherId = p.first;
+        float otherSimilarity = p.second;
+
+        //see if we are no longer on the same level of similarity
+        //if we are on the same level, we should not break out yet.
+        // if(lastSimilarity - otherSimilarity > .0001f)
+        // {
+        //     //we should only break out if we actually have some recommendations
+        //     if(recommendations.size() > 0)
+        //     {
+        //         break;
+        //     }
+        // }
+        if(otherSimilarity < similarPercentage)
+        {
+            break;
+        }
+
+        //we need to find the subs in otherId's row that arent in recommendId's row
+        for(int i=0; i<numberOfSubs; i++)
+        {
+            if(globalMatrix[convertUserSubToIndex(otherId, i)] == 1 && globalMatrix[convertUserSubToIndex(recommendId, i)] != 1)
+            {
+                recommendations[i] += 1;
+            }
+        }
+
+        //finally, update our last similarity
+        //lastSimilarity = otherSimilarity;
+    }
+
+    //display our recommendations
+    printf("Contents of our recommendations:\n");
+    for(map<int, int>::iterator it=recommendations.begin(); it!=recommendations.end(); it++)
+    {
+        int key = it->first;
+        int value = it->second;
+
+        printf("RECOMMEND %d x %d\n", key, value);
     }
 }
 
@@ -200,6 +273,12 @@ bool similarPairCompare(pair<int, float> i, pair<int, float> j)
     //sort in descending order.
     return i.second > j.second;
 }
+
+// bool recommendPairCompare(pair<int, int> i, pair<int, int> j)
+// {
+//     //sort in descending order
+//     return i.second > j.second;
+// }
 
 void printGlobalMatrix()
 {
