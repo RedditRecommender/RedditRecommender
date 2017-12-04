@@ -3,7 +3,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <cstdlib> // atoi
 #include <utility> // std::pair
+#include <algorithm> // std::stable_sort
 #include <vector>
 #include <iostream>
 #include <fstream>
@@ -23,21 +25,27 @@ int grandTotal = 0;
 int numberOfUsers;
 int numberOfSubs;
 
+int recommendId = -1;
+
 //method headers
 int main(int argc, char* argv[]);
+void* recommend(void* rank);
+float sim(int x, int y);
 int convertUserSubToIndex(int x, int y);
+bool similarPairCompare(pair<int, float> i, pair<int, float> j);
 void printGlobalMatrix();
 
 int main(int argc, char* argv[])
 {
     //validate command line args
-    if(argc < 2)
+    if(argc < 3)
     {
-        printf("Usage: ./redditRecommender.out <filename>\n");
+        printf("Usage: ./redditRecommender.out <filename> <usernameID>\n");
         exit(-1);
     }
     //read command line args
     char* fileName = argv[1];
+    recommendId = atoi(argv[2]);
 
     //keep track of the largest ids that we've seen in the file
     int maxUserID = -1;
@@ -71,6 +79,13 @@ int main(int argc, char* argv[])
         allPairs.push_back(currentPair);
     }
 
+    //validate our recommendId is in our matrix
+    if(recommendId > maxUserID)
+    {
+        printf("Could not recommend a subreddit for userId %d since the file only has %d usernames.\n", recommendId, maxUserID + 1);
+        exit(-1);
+    }
+
     //once we are done reading the file, we need to fill in our global matrix
     //start by writing the global numbers of users/subs
     numberOfUsers = maxUserID + 1;
@@ -96,8 +111,83 @@ int main(int argc, char* argv[])
         grandTotal += 1;
     }
 
-    //so now we have our global matrix, so print it
+    //now we have our global matrix, so print it
     printGlobalMatrix();
+
+    //start the recommendation process
+    printf("Recommending a subreddit to user #%d\n", recommendId);
+    recommend(0);
+}
+
+void* recommend(void* rank)
+{
+    long id = (long) rank;
+    printf("Thread started with id of %d\n", id);
+
+    //this vector will be a container of (id, similarity) that we can sort
+    vector<pair<int, float> > similarityVector;
+
+    for(int other=0; other<numberOfUsers; other++)
+    {
+        //make sure we ignore similarity to ourselves
+        if(other == recommendId)
+        {
+            continue;
+        }
+
+        //otherwise calculate similarity and add it to our list
+        float similarity = sim(recommendId, other);
+        similarityVector.push_back(make_pair(other, similarity));
+    }
+
+    //sort the list based on the second value of each pair based on the method below
+    stable_sort(similarityVector.begin(), similarityVector.end(), similarPairCompare);
+
+    //output some tasty info
+    printf("Contents after sorting:\n");
+    for(vector<pair<int, float> >::iterator it=similarityVector.begin(); it != similarityVector.end(); it++)
+    {
+        printf("sim(%5d, %5d) => %5.4f\n", recommendId, (*it).first, (*it).second);
+    }
+}
+
+float sim(int x, int y)
+{
+    //this method uses Jaccard Similarity: sim(x, y) => |intersection(x, y)| / |union(x, y)|
+
+    //validate x and y are in bounds
+    if(x < 0 || x >= numberOfUsers || y < 0 || y >= numberOfUsers)
+    {
+        printf("ERROR: sim(x, y) has out of bounds param: x=%d, y=%d\n", x, y);
+        exit(-1);
+    }
+
+    int unionSize = 0;
+    int intersectionSize = 0;
+
+    //iterate every subreddit
+    for(int i=0; i<numberOfSubs; i++)
+    {
+        //union
+        if(globalMatrix[convertUserSubToIndex(x, i)] == 1 || globalMatrix[convertUserSubToIndex(y, i)] == 1)
+        {
+            unionSize += 1;
+        }
+
+        //intersection
+        if(globalMatrix[convertUserSubToIndex(x, i)] == 1 && globalMatrix[convertUserSubToIndex(y, i)] == 1)
+        {
+            intersectionSize += 1;
+        }
+    }
+
+    //because we are dividing by |union(x, y)|, make sure we don't divide by 0
+    if(unionSize == 0)
+    {
+        return 0;
+    }
+
+    return (float) intersectionSize / unionSize;
 }
 
 int convertUserSubToIndex(int userID, int subredditID)
@@ -105,11 +195,17 @@ int convertUserSubToIndex(int userID, int subredditID)
     return numberOfSubs * userID + subredditID;
 }
 
+bool similarPairCompare(pair<int, float> i, pair<int, float> j)
+{
+    //sort in descending order.
+    return i.second > j.second;
+}
+
 void printGlobalMatrix()
 {
     printf("Graph: (%d users) x (%d subreddits):\n", numberOfUsers, numberOfSubs);
 
-    int columnWidth = 5;
+    int columnWidth = 6;
     //print spacing before top row
     printf("%*s|", columnWidth, "");
 
