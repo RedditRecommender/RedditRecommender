@@ -7,6 +7,9 @@ import praw
 import argparse
 import json
 import sys
+import subprocess
+import random
+import re
 import traceback #This is used for debugging if an exception is raised
 from statistics import mean, median, mode
 from random import shuffle
@@ -25,6 +28,8 @@ actionGroup.add_argument("--recommend", metavar="USER", help="Recommend a subred
 
 #we want a flag to determine whether or not we are trying to evaluate our performance
 argumentParser.add_argument("--evaluate", action="store_true", help="When recommending a subreddit to a user, this will determine if it was a good recommendation")
+argumentParser.add_argument("--tolerance", default=50, type=int, help="When recommending a subreddit to a user, this will determine the tolerance for finding similar users. Defaults to 50")
+argumentParser.add_argument("--count", default=10, type=int, help="When recommending a subreddit to a user, this will determine how many will be shown. Defaults to 10")
 
 #create a group so they can specify "--verbose or --quiet"
 verboseQuietGroup = argumentParser.add_mutually_exclusive_group()
@@ -47,6 +52,10 @@ nextSubredditID = 0
 
 #Here we will store which subreddits each user has a comment in the key will be the username, the value will be a list of subreddits
 subredditsForUser = {}
+
+#this is a matcher that will locate the output of the subprocess call
+#the output will look like: RECOMMEND 15520 x 1
+recommendationMatcher = re.compile(r"RECOMMEND (\d+) x (\d+)")
 
 def main():
     print("*** Main function")
@@ -85,7 +94,7 @@ def main():
         verbose_print(1, "Using {} existing users".format(min(NUM_RANDOM_EXISTING_USERS, len(potentialUsers))))
         
         #and fill userList with a slice from the list
-        userList = set(potentialUsers[:min(NUM_RANDOM_EXISTING_USERS, len(potentialUsers))])
+        userList = set(potentialUsers[:NUM_RANDOM_EXISTING_USERS])
 
 
     #once we have a list of users, we will see which subreddits they have commented on
@@ -140,7 +149,7 @@ def get_comments_for_user(user):
             subredditsForUser[commentUser].append(subredditName)
 
     #basically, since we got here, that means user existed
-    return True
+    return (commentUser, usernameToIdMap[commentUser])
 
 
 def print_report():
@@ -194,7 +203,10 @@ def recommend_subreddit():
 
     #We need to get some comments for this user to make sure we know what they've been up to.
     print("Getting new comments for user '{}'".format(recommendUsername))
-    if not get_comments_for_user(recommendUsername):
+    recommendUsername, recommendId = get_comments_for_user(recommendUsername)
+    recommendUsernameLower = recommendUsername.lower()
+
+    if recommendId is None:
         #Basically, the user didn't exist
         print("Exiting program")
         return None
@@ -207,11 +219,31 @@ def recommend_subreddit():
     #now that we have everything we need, we need to prepare to call the c++ executable
     generate_output_files(verbose=False)
 
-    #TODO: call the executable
+    #call the executable
+    print("Running the c++ executable")
+    executable = subprocess.run(["./redditRecommender.out", "data.txt", str(recommendId), str(args.tolerance)], stdout=subprocess.PIPE)
 
-    #TODO: read output from executable
+    #read output from executable
+    result = executable.stdout.decode("utf-8").split("\n")
 
-    #TODO: output the recommended subreddit(s) based on the recommended id
+    #output the recommended subreddit(s) based on the recommended id
+    recommendationMatches = [recommendationMatcher.match(line) for line in result if recommendationMatcher.match(line)]
+    recommendations = [[int(x) for x in match.group(1, 2)] for match in recommendationMatches]
+    
+    #shuffle it before sorting so we see more of a variety before runs
+    random.shuffle(recommendations)
+    recommendations.sort(key=lambda x: x[1], reverse=True)
+
+    allRecommendations = [x[0] for x in recommendations]
+
+    print("Recommendations for '{}':".format(recommendUsername))
+    print("{:<16} {:<2}".format("Subreddit", "Confidence"))
+
+    idToSubredditMap = {v: k for k, v in subredditToIdMap.items()}
+
+    for rec in recommendations[:args.count]:
+        subredditName = idToSubredditMap[rec[0]]
+        print("{:<16} {:<2}".format(subredditName, rec[1]))
 
     #make sure we 'flip the bit' back if we previously did
     if args.evaluate:
