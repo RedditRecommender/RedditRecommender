@@ -28,7 +28,6 @@ actionGroup.add_argument("--recommend", metavar="USER", help="Recommend a subred
 
 #we want a flag to determine whether or not we are trying to evaluate our performance
 argumentParser.add_argument("--evaluate", action="store_true", help="When recommending a subreddit to a user, this will determine if it was a good recommendation")
-argumentParser.add_argument("--tolerance", default=50, type=int, help="When recommending a subreddit to a user, this will determine the tolerance for finding similar users. Defaults to 50")
 argumentParser.add_argument("--count", default=10, type=int, help="When recommending a subreddit to a user, this will determine how many will be shown. Defaults to 10")
 
 #create a group so they can specify "--verbose or --quiet"
@@ -111,11 +110,15 @@ def get_comments_for_user(user):
         comments = list(reddit.redditor(user).comments.new(limit=NUM_COMMENTS_PER_USER))
     except:
         verbose_print(0, "Username '{}' does not exist".format(user))
-        return None
+        return user, None
 
     commentsLen = len(comments)
 
     verbose_print(0, "Found {} comments for user '{}'".format(commentsLen, user))
+
+    if commentsLen == 0:
+        verbose_print(0, "Username '{}' does not have any comment history".format(user))
+        return user, None
 
     for i, comment in enumerate(comments):
         commentUser = str(comment.author)
@@ -221,7 +224,7 @@ def recommend_subreddit():
 
     #call the executable
     print("Running the c++ executable")
-    executable = subprocess.run(["./redditRecommender.out", "data.txt", str(recommendId), str(args.tolerance)], stdout=subprocess.PIPE)
+    executable = subprocess.run(["./redditRecommender.out", "data.txt", str(recommendId)], stdout=subprocess.PIPE)
 
     #read output from executable
     result = executable.stdout.decode("utf-8").split("\n")
@@ -234,8 +237,6 @@ def recommend_subreddit():
     random.shuffle(recommendations)
     recommendations.sort(key=lambda x: x[1], reverse=True)
 
-    allRecommendations = [x[0] for x in recommendations]
-
     print("Recommendations for '{}':".format(recommendUsername))
     print("{:<16} {:<2}".format("Subreddit", "Confidence"))
 
@@ -247,6 +248,7 @@ def recommend_subreddit():
 
     #make sure we 'flip the bit' back if we previously did
     if args.evaluate:
+        allRecommendations = [x[0] for x in recommendations]
         pass #TODO: flip the bit back
 
 
