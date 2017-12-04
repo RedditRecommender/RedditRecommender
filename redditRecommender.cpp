@@ -27,7 +27,6 @@ int numberOfUsers;
 int numberOfSubs;
 
 int recommendId = -1;
-float similarPercentage = .05f;
 
 //method headers
 int main(int argc, char* argv[]);
@@ -35,7 +34,6 @@ void* recommend(void* rank);
 float sim(int x, int y);
 int convertUserSubToIndex(int x, int y);
 bool similarPairCompare(pair<int, float> i, pair<int, float> j);
-//bool recommendPairCompare(pair<int, int> i, pair<int, int> j);
 void printGlobalMatrix();
 
 
@@ -43,7 +41,7 @@ void printGlobalMatrix();
 int main(int argc, char* argv[])
 {
     //validate command line args
-    if(argc < 4)
+    if(argc < 3)
     {
         printf("Usage: ./redditRecommender.out <filename> <usernameID> <similarPercent>\n");
         exit(-1);
@@ -51,15 +49,6 @@ int main(int argc, char* argv[])
     //read command line args
     char* fileName = argv[1];
     recommendId = atoi(argv[2]);
-    int percent = atoi(argv[3]);
-
-    if(percent < 0 || percent > 100)
-    {
-        printf("Similar Percent must be an int in the range of [0-100]\n");
-        exit(-1);
-    }
-
-    similarPercentage = (float) percent / 100;
 
     //keep track of the largest ids that we've seen in the file
     int maxUserID = -1;
@@ -176,7 +165,7 @@ void* recommend(void* rank)
 
     //we need to keep track of our candidate recommendations
     map<int, int> recommendations;
-    //float lastSimilarity = 0;
+    float lastSimilarity = 0;
 
     //we will need to traverse this vector to find our candidates
     for(vector<pair<int, float> >::iterator it=similarityVector.begin(); it != similarityVector.end(); it++)
@@ -185,19 +174,15 @@ void* recommend(void* rank)
         int otherId = p.first;
         float otherSimilarity = p.second;
 
-        //see if we are no longer on the same level of similarity
-        //if we are on the same level, we should not break out yet.
-        // if(lastSimilarity - otherSimilarity > .0001f)
-        // {
-        //     //we should only break out if we actually have some recommendations
-        //     if(recommendations.size() > 0)
-        //     {
-        //         break;
-        //     }
-        // }
-        if(otherSimilarity < similarPercentage)
+        // see if we are no longer on the same level of similarity
+        // if we are on the same level, we should not break out yet.
+        if(lastSimilarity - otherSimilarity > .0001f)
         {
-            break;
+            //we should only break out if we actually have some recommendations
+            if(recommendations.size() > 0)
+            {
+                break;
+            }
         }
 
         //we need to find the subs in otherId's row that arent in recommendId's row
@@ -210,7 +195,7 @@ void* recommend(void* rank)
         }
 
         //finally, update our last similarity
-        //lastSimilarity = otherSimilarity;
+        lastSimilarity = otherSimilarity;
     }
 
     //display our recommendations
@@ -273,12 +258,6 @@ bool similarPairCompare(pair<int, float> i, pair<int, float> j)
     //sort in descending order.
     return i.second > j.second;
 }
-
-// bool recommendPairCompare(pair<int, int> i, pair<int, int> j)
-// {
-//     //sort in descending order
-//     return i.second > j.second;
-// }
 
 void printGlobalMatrix()
 {
