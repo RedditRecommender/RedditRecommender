@@ -54,46 +54,11 @@ def main():
     #see if all we want is a report
     if args.report:
         print_report()
-        return None
+        return None #End of report
 
     if args.recommend:
-        
-        #search for the id of this user
-        recommendUsername = args.recommend
-        recommendUsernameLower = recommendUsername.lower()
-        recommendId = None
-
-        print("Recommending a subreddit to username '{}'".format(recommendUsername))
-
-        #simple case, the username is already in our dict, so we can access directly
-        if recommendUsername in subredditsForUser:
-            recommendId = usernameToIdMap[recommendUsername]
-            print("User '{}' is already in our matrix with the id of {}".format(recommendUsername, recommendId))
-        
-        #more difficult case, we need to search the keys to find a case insensite match
-        if recommendId is None:
-            for existingUsername, existingId in usernameToIdMap.items():
-                if recommendUsernameLower == existingUsername.lower():
-                    print("Found matching username '{}' for '{}' with the id of {}".format(existingUsername, recommendUsername, existingId))
-                    recommendUsername = existingUsername
-                    recommendUsernameLower = recommendUsername.lower()
-                    recommendId = existingId
-                    break
-
-        if recommendId is None:
-            print("No existing data for user '{}'".format(recommendUsername))
-
-        #We need to get some comments for this user to make sure we know what they've been up to.
-        print("Getting new comments for user '{}'".format(recommendUsername))
-        get_comments_for_user(recommendUsername)
-
-        if args.evaluate:
-            print("Evaluate: Coming soon to theaters near you!") #TODO: evaluating how well our recommender works
-        else:
-            pass
-
-
-        return None
+        recommend_subreddit()
+        return None #End of recommend
 
     #we will have a list of users here, we will keep track of them before putting them in the global
     #this way, we know they at least have one comment!
@@ -200,25 +165,82 @@ def print_report():
     print("    mode: {}".format(mode(userCountPerSubreddit)))
     print("    sum: {}".format(sum(userCountPerSubreddit)))
 
-def generate_output_files():
-    print("*** Generate output files function")
+
+def recommend_subreddit():
+    #search for the id of this user
+    recommendUsername = args.recommend
+    recommendUsernameLower = recommendUsername.lower()
+    recommendId = None
+
+    print("Recommending a subreddit to username '{}'".format(recommendUsername))
+
+    #simple case, the username is already in our dict, so we can access directly
+    if recommendUsername in subredditsForUser:
+        recommendId = usernameToIdMap[recommendUsername]
+        print("User '{}' is already in our matrix with the id of {}".format(recommendUsername, recommendId))
+    
+    #more difficult case, we need to search the keys to find a case insensite match
+    if recommendId is None:
+        for existingUsername, existingId in usernameToIdMap.items():
+            if recommendUsernameLower == existingUsername.lower():
+                print("Found matching username '{}' for '{}' with the id of {}".format(existingUsername, recommendUsername, existingId))
+                recommendUsername = existingUsername
+                recommendUsernameLower = recommendUsername.lower()
+                recommendId = existingId
+                break
+
+    if recommendId is None:
+        print("No existing data for user '{}'".format(recommendUsername))
+
+    #We need to get some comments for this user to make sure we know what they've been up to.
+    print("Getting new comments for user '{}'".format(recommendUsername))
+    if not get_comments_for_user(recommendUsername):
+        #Basically, the user didn't exist
+        print("Exiting program")
+        return None
+
+    #and then see if we are trying to evaluate
+    if args.evaluate:
+        #if we are evaluating, we need to 'flip a bit' and then recommend to see if we get the flipped one back
+        print("Evaluate: Coming soon to theaters near you!") #TODO: flip the bit!
+
+    #now that we have everything we need, we need to prepare to call the c++ executable
+    generate_output_files(verbose=False)
+
+    #TODO: call the executable
+
+    #TODO: read output from executable
+
+    #TODO: output the recommended subreddit(s) based on the recommended id
+
+    #make sure we 'flip the bit' back if we previously did
+    if args.evaluate:
+        pass #TODO: flip the bit back
+
+
+def generate_output_files(verbose=True):
+    if verbose: 
+        print("*** Generate output files function")
 
     #generate usernameMap.txt
-    verbose_print(0, "Writing {} entries to usernameMap.txt".format(len(usernameToIdMap)))
+    if verbose: 
+        verbose_print(0, "Writing {} entries to usernameMap.txt".format(len(usernameToIdMap)))
     with open("usernameMap.txt", "w") as file:
         data = sorted(usernameToIdMap.items(), key=lambda x: x[1]) #sort by second elment, the id
         for username, ID in data:
             file.write("{} {}\n".format(username, ID))
 
     #generate subredditMap.txt
-    verbose_print(0, "Writing {} entries to subredditMap.txt".format(len(subredditToIdMap)))
+    if verbose: 
+        verbose_print(0, "Writing {} entries to subredditMap.txt".format(len(subredditToIdMap)))
     with open("subredditMap.txt", "w") as file:
         data = sorted(subredditToIdMap.items(), key=lambda x: x[1]) #sort by second elment, the id
         for subredditName, ID in data:
             file.write("{} {}\n".format(subredditName, ID))
     
     #generate data.txt
-    verbose_print(0, "Writing {} entries to data.txt".format(sum(len(x) for x in subredditsForUser.values())))
+    if verbose: 
+        verbose_print(0, "Writing {} entries to data.txt".format(sum(len(x) for x in subredditsForUser.values())))
     with open("data.txt", "w") as file:
         data = sorted(subredditsForUser.items(), key=lambda x: usernameToIdMap[x[0]]) #sort by the id of the username, which is the first element
         for username, subredditList in data:
@@ -312,7 +334,3 @@ if __name__ == "__main__":
     except Exception as e:
         print("ERROR saving globals to file")
         traceback.print_exc(file=sys.stdout)
-    
-    
-    
-
