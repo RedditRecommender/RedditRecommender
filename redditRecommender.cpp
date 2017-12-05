@@ -43,7 +43,7 @@ int main(int argc, char* argv[])
     //validate command line args
     if(argc < 3)
     {
-        printf("Usage: ./redditRecommender.out <filename> <usernameID> <similarPercent>\n");
+        printf("Usage: ./redditRecommender.out <filename> <usernameID>\n");
         exit(-1);
     }
     //read command line args

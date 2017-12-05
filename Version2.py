@@ -332,7 +332,6 @@ def verbose_print(level, msg):
 
 
 if __name__ == "__main__":
-    global args
     args = argumentParser.parse_args()
 
     #ensure they are not evaluating anything other than recommend
