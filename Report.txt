@@ -1,0 +1,5 @@
+Thread 1: 6m5.204s
+Thread 2: 3m9.462s
+Thread 4: 1m36.879s
+Thread 6: 1m41.547s
+Thread 8: 1m35.997s
