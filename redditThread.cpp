@@ -26,15 +26,15 @@ int grandTotal = 0;
 int numberOfUsers;
 int numberOfSubs;
 
-long thread_count = 8; 
+long thread_count = 4; 
 
 int recommendId = -1;
 
-map<int,vector<int> > entireMatrixRecommendation; 
+//entire matrix recommendation
+map<int, map< int, int > > entireMatrixRecommendation; 
 
 //method headers
 int main(int argc, char* argv[]);
-void* recommend(void* rank);
 float sim(int x, int y);
 int convertUserSubToIndex(int x, int y);
 bool similarPairCompare(pair<int, float> i, pair<int, float> j);
@@ -43,100 +43,21 @@ void* fullMatrixRecommend(void* thread_id);
 
 int main(int argc, char* argv[])
 {
-	// if the user chooses to find recommendations for every user
-	if(argc == 2)
+	if(argc < 2)
 	{
-		char* fileName = argv[1];
-		//keep track of the largest ids that we've seen in the file
-	    int maxUserID = -1;
-	    int maxSubID = -1;
-
-	    //and keep track of the current row we're on
-	    int userID;
-	    int subID;
-
-	    //create a vector of pairs that we've read so we don't need to re-read the file
-	    vector<pair<int, int> > allPairs;
-
-	    //open and read the file
-	    printf("Reading the file: %s\n", fileName);
-	    fstream dataFile(fileName, ios_base::in);
-
-	    while(dataFile >> userID >> subID)
-	    {
-	        //see if either value exceeds the largest we've seen yet
-	        if(userID > maxUserID)
-	        {
-	            maxUserID = userID;
-	        }
-	        if(subID > maxSubID)
-	        {
-	            maxSubID = subID;
-	        }
-
-	        //make a pair for this line and append it to allPairs
-	        pair<int, int> currentPair = make_pair(userID, subID);
-	        allPairs.push_back(currentPair);
-	    }
-
-	    //once we are done reading the file, we need to fill in our global matrix
-	    //start by writing the global numbers of users/subs
-	    numberOfUsers = maxUserID + 1;
-	    numberOfSubs = maxSubID + 1;
-
-	    //then we need to allocate the memory for the matrix (1 dimensional)
-	    globalMatrix = (int*) calloc(numberOfUsers * numberOfSubs, sizeof(int));
-	    userTotal = (int*) calloc(numberOfUsers, sizeof(int));
-	    subTotal = (int*) calloc(numberOfSubs, sizeof(int));
-
-	    printf("File has %d usernames and %d subreddits.\n", numberOfUsers, numberOfSubs);
-	    printf("Allocated %d cells\n", numberOfUsers * numberOfSubs);
-
-	    //we will iterate through all of the pairs and populate our matrix
-	    for(vector<pair<int, int> >::iterator it = allPairs.begin(); it != allPairs.end(); it++){
-	        pair<int, int> thisPair = *it;
-	        userID = thisPair.first;
-	        subID = thisPair.second;
-
-	        globalMatrix[convertUserSubToIndex(userID, subID)] = 1;
-	        userTotal[userID] += 1;
-	        subTotal[subID] += 1;
-	        grandTotal += 1;
-	    }
-
-	    //now we have our global matrix, so print it
-	    printGlobalMatrix();
-
-	    //create threads
-	    long thread;
-	    pthread_t* thread_handles;
-	    thread_handles = (pthread_t*) malloc (thread_count * sizeof(pthread_t));
-
-	    for(thread = 0; thread < thread_count; thread++)
-	    {
-	    	pthread_create(&thread_handles[thread], NULL, fullMatrixRecommend, (void*) thread);
-	    }
-
-	    //joining of threads
-	    for(thread = 0; thread , thread_count; thread++)
-	    {
-	    	pthread_join(thread_handles[thread], NULL);
-	    }
-
-	    printf("User %i has these recommendations: %i", fullMatrixRecommend[0].key, fullMatrixRecommend[0].value);
-
+		printf("Usage: ./redditThread.out fileName [recommendId] \n");
+		exit(-1);
 	}
-
-    //validate command line args
-    if(argc == 3)
-    {
-        printf("Usage: ./redditRecommender.out <filename> <usernameID>\n");
-        exit(-1);
-    }
-    //read command line args
+    //validate command line args 
     char* fileName = argv[1];
-    recommendId = atoi(argv[2]);
-
+    
+    // if you wish to recommend to single user
+    if(argc > 2)
+    {       
+	    //read command line args
+	    recommendId = atoi(argv[2]);
+	}
+	
     //keep track of the largest ids that we've seen in the file
     int maxUserID = -1;
     int maxSubID = -1;
@@ -169,17 +90,21 @@ int main(int argc, char* argv[])
         allPairs.push_back(currentPair);
     }
 
-    //validate our recommendId is in our matrix
-    if(recommendId > maxUserID)
+    // if you wish to recommend a single to a single user
+    if(recommendId > -1)
     {
-        printf("Could not recommend a subreddit for userId %d since the file only has %d usernames.\n", recommendId, maxUserID + 1);
-        exit(-1);
-    }
-    if(recommendId < 0)
-    {
-        printf("ID cannot be negative\n");
-        exit(-1);
-    }
+	    //validate our recommendId is in our matrix
+	    if(recommendId > maxUserID)
+	    {
+	        printf("Could not recommend a subreddit for userId %d since the file only has %d usernames.\n", recommendId, maxUserID + 1);
+	        exit(-1);
+	    }
+	    if(recommendId < 0)
+	    {
+	        printf("ID cannot be negative\n");
+	        exit(-1);
+	    }
+	}
 
     //once we are done reading the file, we need to fill in our global matrix
     //start by writing the global numbers of users/subs
@@ -209,9 +134,54 @@ int main(int argc, char* argv[])
     //now we have our global matrix, so print it
     printGlobalMatrix();
 
+    //call recommend function for single specified user
+    if(recommendId > -1)
+    {
     //start the recommendation process
-    printf("Recommending a subreddit to user #%d\n", recommendId);
-    recommend(0);
+    	printf("Recommending a subreddit to user #%d\n", recommendId);
+    	fullMatrixRecommend(0);
+    }
+
+    // if the user does not set recommendId run the entire data.txt through recommend funciton
+    if(recommendId == -1)
+    {
+	    //create threads
+	    long thread;
+	    pthread_t* thread_handles;
+	    thread_handles = (pthread_t*) malloc (thread_count * sizeof(pthread_t));
+
+	    for(thread = 0; thread < thread_count; thread++)
+	    {
+	    	pthread_create(&thread_handles[thread], NULL, fullMatrixRecommend, (void*) thread);
+	    }
+
+	    //joining of threads
+	    for(thread = 0; thread < thread_count; thread++)
+	    {
+	    	pthread_join(thread_handles[thread], NULL);
+	    }
+    }
+
+    for(map<int,map<int,int> >::iterator it1 = entireMatrixRecommendation.begin(); it1 != entireMatrixRecommendation.end(); it1++)
+    {
+    	int userID = (*it1).first;
+    	map<int, int> recommendations = (*it1).second;
+
+    	for(map<int, int>::iterator it2 = recommendations.begin(); it2 != recommendations.end(); it2++)
+    	{
+    		int subreddit = (*it2).first;
+    		int confidence = (*it2).second;
+
+    		if(recommendId > -1)
+			{
+				printf("RECOMMEND %d x %d\n", subreddit, confidence);
+			}
+			else
+			{
+				printf("User ID: %d is recommended subreddit: %d with confidence: %d \n", userID, subreddit, confidence);
+			}
+    	}
+    }
 }
 
 void* fullMatrixRecommend(void* thread_id)
@@ -220,7 +190,16 @@ void* fullMatrixRecommend(void* thread_id)
 
     // creates start and end points for each thread
 	int start = rank * (numberOfUsers / thread_count) + min(rank, numberOfUsers % thread_count);
-	int end = start + (numberOfUsers / thread_count) + (rank < numberOfUsers % thread_count);
+	int end = start + (numberOfUsers / thread_count) + (rank < (numberOfUsers % thread_count));
+
+	// if there the args specify recommending for one user only itterate once
+	if(recommendId > -1)
+	{
+		start = recommendId;
+		end = recommendId + 1;
+	}
+
+	printf("Thread: %d, Start: %d, End: %d\n", rank, start, end);
 
 	// iterates over every user
 	for(int user=start; user<end; user++)
@@ -272,102 +251,27 @@ void* fullMatrixRecommend(void* thread_id)
 	                recommendations[i] += 1;
 	            }
 	        }
+	        // printf("finished the recommendations for user %i \n", user);
 
 	        //finally, update our last similarity
 	        lastSimilarity = otherSimilarity;
 	    }
 
+
+	    entireMatrixRecommendation[user] = recommendations;
+
 	    //add the recommened users to global map
-		for(map<int, int>::iterator it=recommendations.begin(); it!=recommendations.end(); it++)
-	    {
-	        int key = it->first;
-	        int value = it->second;
+		// for(map<int, int>::iterator it=recommendations.begin(); it!=recommendations.end(); it++)
+	 //    {
+	 //        int key = it->first;
+	 //        int value = it->second;
 
-	        entireMatrixRecommendation[user].push_back(key);
-	    }
+
+	 //        entireMatrixRecommendation[user][key] = value;
+	 //    }
 	}
-}
 
-void* recommend(void* rank)
-{
-    long id = (long) rank;
-    printf("Thread started with id of %d\n", id);
-
-    //this vector will be a container of (id, similarity) that we can sort
-    vector<pair<int, float> > similarityVector;
-
-    for(int other=0; other<numberOfUsers; other++)
-    {
-        //make sure we ignore similarity to ourselves
-        if(other == recommendId)
-        {
-            continue;
-        }
-
-        //otherwise calculate similarity and add it to our vector
-        float similarity = sim(recommendId, other);
-        similarityVector.push_back(make_pair(other, similarity));
-    }
-
-    //sort the vector based on the second value of each pair based on the method below
-    stable_sort(similarityVector.begin(), similarityVector.end(), similarPairCompare);
-
-    //output some tasty info
-    printf("Contents after sorting:\n");
-    for(vector<pair<int, float> >::iterator it=similarityVector.begin(); it != similarityVector.end(); it++)
-    {
-        pair<int, float> p = *it;
-        if(p.second == 0)
-        {
-            break;
-        }
-        printf("sim(%5d, %5d) => %5.4f\n", recommendId, p.first, p.second);
-    }
-
-    //we need to keep track of our candidate recommendations
-    map<int, int> recommendations;
-    float lastSimilarity = 0;
-
-    //we will need to traverse this vector to find our candidates
-    for(vector<pair<int, float> >::iterator it=similarityVector.begin(); it != similarityVector.end(); it++)
-    {
-        pair<int, float> p = *it;
-        int otherId = p.first;
-        float otherSimilarity = p.second;
-
-        // see if we are no longer on the same level of similarity
-        // if we are on the same level, we should not break out yet.
-        if(lastSimilarity - otherSimilarity > .0001f)
-        {
-            //we should only break out if we actually have some recommendations
-            if(recommendations.size() > 0)
-            {
-                break;
-            }
-        }
-
-        //we need to find the subs in otherId's row that arent in recommendId's row
-        for(int i=0; i<numberOfSubs; i++)
-        {
-            if(globalMatrix[convertUserSubToIndex(otherId, i)] == 1 && globalMatrix[convertUserSubToIndex(recommendId, i)] != 1)
-            {
-                recommendations[i] += 1;
-            }
-        }
-
-        //finally, update our last similarity
-        lastSimilarity = otherSimilarity;
-    }
-
-    //display our recommendations
-    printf("Contents of our recommendations:\n");
-    for(map<int, int>::iterator it=recommendations.begin(); it!=recommendations.end(); it++)
-    {
-        int key = it->first;
-        int value = it->second;
-
-        printf("RECOMMEND %d x %d\n", key, value);
-    }
+	printf("Thread %d Finished.\n", rank);
 }
 
 float sim(int x, int y)
