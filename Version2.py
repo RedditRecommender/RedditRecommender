@@ -218,7 +218,7 @@ def recommend_subreddit():
 
     #call the executable
     print("Running the c++ executable")
-    executable = subprocess.run(["./redditRecommender.out", "data.txt", str(recommendId)], stdout=subprocess.PIPE)
+    executable = subprocess.run(["./redditThread.out", "data.txt", str(recommendId)], stdout=subprocess.PIPE)
 
     #read output from executable
     result = executable.stdout.decode("utf-8").split("\n")
