@@ -27,7 +27,6 @@ actionGroup.add_argument("-r", "--report", action="store_true", help="Display a 
 actionGroup.add_argument("--recommend", metavar="USER", help="Recommend a subreddit to a user")
 
 #we want a flag to determine whether or not we are trying to evaluate our performance
-argumentParser.add_argument("--evaluate", action="store_true", help="When recommending a subreddit to a user, this will determine if it was a good recommendation")
 argumentParser.add_argument("--count", default=10, type=int, help="When recommending a subreddit to a user, this will determine how many will be shown. Defaults to 10")
 
 #create a group so they can specify "--verbose or --quiet"
@@ -214,11 +213,6 @@ def recommend_subreddit():
         print("Exiting program")
         return None
 
-    #and then see if we are trying to evaluate
-    if args.evaluate:
-        #if we are evaluating, we need to 'flip a bit' and then recommend to see if we get the flipped one back
-        print("Evaluate: Coming soon to theaters near you!") #TODO: flip the bit!
-
     #now that we have everything we need, we need to prepare to call the c++ executable
     generate_output_files(verbose=False)
 
@@ -242,15 +236,13 @@ def recommend_subreddit():
 
     idToSubredditMap = {v: k for k, v in subredditToIdMap.items()}
 
+    print("Subreddits this user posts to:")
+    for subreddit in subredditsForUser[recommendUsername]:
+        print("{:<16}".format(subreddit))
+    print("")
     for rec in recommendations[:args.count]:
         subredditName = idToSubredditMap[rec[0]]
         print("{:<16} {:<2}".format(subredditName, rec[1]))
-
-    #make sure we 'flip the bit' back if we previously did
-    if args.evaluate:
-        allRecommendations = [x[0] for x in recommendations]
-        pass #TODO: flip the bit back
-
 
 def generate_output_files(verbose=True):
     if verbose: 
@@ -333,10 +325,6 @@ def verbose_print(level, msg):
 
 if __name__ == "__main__":
     args = argumentParser.parse_args()
-
-    #ensure they are not evaluating anything other than recommend
-    if args.evaluate and not args.recommend:
-        argumentParser.error("Cannot use flag --evaluate without --recommend")
 
     try: 
         load_globals()
