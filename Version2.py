@@ -231,18 +231,18 @@ def recommend_subreddit():
     random.shuffle(recommendations)
     recommendations.sort(key=lambda x: x[1], reverse=True)
 
-    print("Recommendations for '{}':".format(recommendUsername))
-    print("{:<16} {:<2}".format("Subreddit", "Confidence"))
-
     idToSubredditMap = {v: k for k, v in subredditToIdMap.items()}
-
-    print("Subreddits this user posts to:")
-    for subreddit in subredditsForUser[recommendUsername]:
-        print("{:<16}".format(subreddit))
-    print("")
+    
+    print("Recommendations for '{}':".format(recommendUsername))
+    
+    if len(recommendations) == 0:
+        print("No Recommendations")
+    else:
+        print("{:<24} {:<2}".format("Subreddit", "Recommended x times"))
+        
     for rec in recommendations[:args.count]:
         subredditName = idToSubredditMap[rec[0]]
-        print("{:<16} {:<2}".format(subredditName, rec[1]))
+        print("{:<24} {:<2}".format(subredditName, rec[1]))
 
 def generate_output_files(verbose=True):
     if verbose: 
@@ -325,6 +325,9 @@ def verbose_print(level, msg):
 
 if __name__ == "__main__":
     args = argumentParser.parse_args()
+
+    if args.count < 1:
+        argumentParser.error("Count must be greater than 1")
 
     try: 
         load_globals()
