@@ -1,5 +1,5 @@
-//To compile: g++ -O3 -w redditRecommender.cpp -o redditRecommender.out
-//To run: ./redditRecommender.out <filename>
+//To compile: g++ -O3 -w redditThread.cpp -o redditThread.out -lpthread
+//To run: ./redditThread.out <filename> [recommendId]
 
 #include <stdio.h>
 #include <stdlib.h>
